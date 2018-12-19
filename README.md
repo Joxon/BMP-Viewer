@@ -16,5 +16,7 @@ Actually more than BMP
 - [x] 放大 QImage.scaled(...)
 - [x] 旋转 QImage.transformed(...)
 - [x] 镜像 QImage.mirrored(...)
-- [ ] 亮度调整
-- [ ] 对比度调整
+- [x] 亮度调整
+- [x] 对比度调整
+- [ ] 手型工具
+- [ ] 滚轮缩放
