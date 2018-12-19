@@ -51,7 +51,7 @@
 font-family: &quot;微软雅黑&quot;;</string>
             </property>
             <property name="text">
-             <string>请在点击右侧“打开”按钮</string>
+             <string>请在右侧点击“打开”按钮</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -193,10 +193,10 @@ font-family: &quot;微软雅黑&quot;;</string>
           <item row="3" column="0">
            <widget class="QSlider" name="horizontalSliderContrast">
             <property name="minimum">
-             <number>0</number>
+             <number>-50</number>
             </property>
             <property name="maximum">
-             <number>100</number>
+             <number>50</number>
             </property>
             <property name="value">
              <number>0</number>
@@ -214,17 +214,17 @@ font-family: &quot;微软雅黑&quot;;</string>
              <bool>false</bool>
             </property>
             <property name="tickPosition">
-             <enum>QSlider::TicksBothSides</enum>
+             <enum>QSlider::NoTicks</enum>
             </property>
            </widget>
           </item>
           <item row="1" column="0">
            <widget class="QSlider" name="horizontalSliderBrightness">
             <property name="minimum">
-             <number>-255</number>
+             <number>-150</number>
             </property>
             <property name="maximum">
-             <number>255</number>
+             <number>150</number>
             </property>
             <property name="value">
              <number>0</number>
@@ -239,7 +239,7 @@ font-family: &quot;微软雅黑&quot;;</string>
              <bool>false</bool>
             </property>
             <property name="tickPosition">
-             <enum>QSlider::TicksBothSides</enum>
+             <enum>QSlider::NoTicks</enum>
             </property>
            </widget>
           </item>

@@ -40,9 +40,11 @@ private slots:
 
     void on_toolButtonMirrorVertical_clicked();
 
-    void on_horizontalSliderBrightness_sliderMoved(int position);
+    void on_horizontalSliderBrightness_valueChanged(int value);
 
-    void on_horizontalSliderBrightness_actionTriggered(int action);
+    void on_horizontalSliderContrast_valueChanged(int value);
+
+    void on_pushButtonSave_clicked();
 
 private:
     Ui::MainWindow *ui;

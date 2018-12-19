@@ -6,6 +6,8 @@
 #pragma execution_character_set("utf-8")
 #endif
 
+//#define BRIGHTNESS1
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -72,11 +74,11 @@ static void initImgFileDialog(QFileDialog& dialog, QFileDialog::AcceptMode accep
     // 文件格式过滤
     QStringList mimeTypeFilters;
     mimeTypeFilters.append("image/bmp");
-//    const QByteArrayList supportedMimeTypes = acceptMode == QFileDialog::AcceptOpen
-//                                              ? QImageReader::supportedMimeTypes()  // 对话框为打开，导入可读的格式
-//                                              : QImageWriter::supportedMimeTypes(); // 对话框为保存，导入可写的格式
-//    foreach(const QByteArray& mimeTypeName, supportedMimeTypes) mimeTypeFilters.append(mimeTypeName);
-//    mimeTypeFilters.sort();
+    const QByteArrayList supportedMimeTypes = acceptMode == QFileDialog::AcceptOpen
+                                              ? QImageReader::supportedMimeTypes()  // 对话框为打开，导入可读的格式
+                                              : QImageWriter::supportedMimeTypes(); // 对话框为保存，导入可写的格式
+    foreach(const QByteArray& mimeTypeName, supportedMimeTypes) mimeTypeFilters.append(mimeTypeName);
+    mimeTypeFilters.sort();
     dialog.setMimeTypeFilters(mimeTypeFilters);
     dialog.selectMimeTypeFilter("image/bmp");
 
@@ -106,6 +108,7 @@ bool MainWindow::loadFile(const QString& fileName)
     setWindowFilePath(fileName);
 
     ui->doubleSpinBoxZoom->setValue(1.00);
+    ui->horizontalSliderBrightness->setValue(0);
 
     return true;
 }
@@ -188,22 +191,66 @@ void MainWindow::adjustBrightness(int value)
 {
     modified = true;
 
-    uchar *line  = imageNew.scanLine(0);
-    uchar *pixel = line;
+#ifdef BRIGHTNESS1
+    uchar *ptrYOld = imageOld.bits();
+    uchar *ptrYNew = imageNew.bits();
 
-    for (int y = 0; y < imageNew.height(); ++y)
+    uchar *ptrXOld;
+    uchar *ptrXNew;
+
+    for (int y = 0; y < imageOld.height(); ++y)
     {
-        pixel = line;
-        for (int x = 0; x < imageNew.width(); ++x)
+        ptrXOld = ptrYOld;
+        ptrXNew = ptrYNew;
+        for (int x = 0; x < imageOld.width(); ++x)
         {
-            *pixel       = qBound(0, *pixel + value, 255);
-            *(pixel + 1) = qBound(0, *(pixel + 1) + value, 255);
-            *(pixel + 2) = qBound(0, *(pixel + 2) + value, 255);
-            pixel       += 4;
+            // RGBA，A不处理
+            ptrXNew[0] = (uchar)qBound(0, ptrXOld[0] + value, 255);
+            ptrXNew[1] = (uchar)qBound(0, ptrXOld[1] + value, 255);
+            ptrXNew[2] = (uchar)qBound(0, ptrXOld[2] + value, 255);
+            // x轴指针偏移
+            ptrXOld += 4;
+            ptrXNew += 4;
         }
-
-        line += imageNew.bytesPerLine();
+        // y轴指针偏移
+        ptrYOld += imageOld.bytesPerLine();
+        ptrYNew += imageNew.bytesPerLine();
     }
+#elif BRIGHTNESS2
+    QColor oldColor;
+    int    r = 0, g = 0, b = 0;
+    for (int y = 0; y < imageOld.height(); ++y)
+    {
+        for (int x = 0; x < imageOld.width(); ++x)
+        {
+            oldColor = QColor(imageOld.pixel(x, y));
+            r        = oldColor.red() + value;
+            g        = oldColor.green() + value;
+            b        = oldColor.blue() + value;
+            imageNew.setPixel(x, y, qRgb(r, g, b));
+        }
+    }
+#else
+    if ((value < -255) || (value > 255))
+    {
+        return;
+    }
+
+    int   red, green, blue;
+    int   pixelCount = imageOld.width() * imageOld.height();
+    uchar *pixelsOld = (uchar *)imageOld.bits();
+    uchar *pixelsNew = (uchar *)imageNew.bits();
+    for (int i = 0; i < pixelCount * 4; i += 4)
+    {
+        red              = pixelsOld[i] + value;
+        pixelsNew[i]     = (red < 0x00) ? 0x00 : (red > 0xff) ? 0xff : red;
+        green            = pixelsOld[i + 1] + value;
+        pixelsNew[i + 1] = (green < 0x00) ? 0x00 : (green > 0xff) ? 0xff : green;
+        blue             = pixelsOld[i + 2] + value;
+        pixelsNew[i + 2] = (blue < 0x00) ? 0x00 : (blue > 0xff) ? 0xff : blue;
+    }
+#endif
+
 
     updateImage();
 }
@@ -213,20 +260,22 @@ void MainWindow::adjustContrast(int value)
 {
     modified = true;
 
-    int           pixelCount = imageNew.width() * imageNew.height();
-    unsigned char *pixels    = (unsigned char *)imageNew.bits();
+    int   pixelCount = imageOld.width() * imageOld.height();
+    uchar *pixelsOld = (uchar *)imageOld.bits();
+    uchar *pixelsNew = (uchar *)imageNew.bits();
 
-    int red, green, blue, nRed, nGreen, nBlue;
+    uchar red, green, blue, nRed, nGreen, nBlue;
 
-    if ((value > 0) && (value < 100))
+    if ((0 < value) && (value < 100))
     {
-        double param = 1 / (1 - value / 100.0) - 1;
+//        double param = 1 / (1 - value / 100.0) - 1;
+        double param = value / 100.0;
 
-        for (int i = 0; i < pixelCount; ++i)
+        for (int i = 0; i < pixelCount * 4; i += 4)
         {
-            nRed   = qRed(pixels[i]);
-            nGreen = qGreen(pixels[i]);
-            nBlue  = qBlue(pixels[i]);
+            nRed   = (pixelsOld[i]);
+            nGreen = (pixelsOld[i + 1]);
+            nBlue  = (pixelsOld[i + 2]);
 
             red   = nRed + (nRed - 127) * param;
             red   = (red < 0x00) ? 0x00 : (red > 0xff) ? 0xff : red;
@@ -235,16 +284,18 @@ void MainWindow::adjustContrast(int value)
             blue  = nBlue + (nBlue - 127) * param;
             blue  = (blue < 0x00) ? 0x00 : (blue > 0xff) ? 0xff : blue;
 
-            pixels[i] = qRgba(red, green, blue, qAlpha(pixels[i]));
+            pixelsNew[i]     = red;
+            pixelsNew[i + 1] = green;
+            pixelsNew[i + 2] = blue;
         }
     }
     else
     {
-        for (int i = 0; i < pixelCount; ++i)
+        for (int i = 0; i < pixelCount * 4; i += 4)
         {
-            nRed   = qRed(pixels[i]);
-            nGreen = qGreen(pixels[i]);
-            nBlue  = qBlue(pixels[i]);
+            nRed   = (pixelsOld[i]);
+            nGreen = (pixelsOld[i + 1]);
+            nBlue  = (pixelsOld[i + 2]);
 
             red   = nRed + (nRed - 127) * value / 100.0;
             red   = (red < 0x00) ? 0x00 : (red > 0xff) ? 0xff : red;
@@ -253,7 +304,9 @@ void MainWindow::adjustContrast(int value)
             blue  = nBlue + (nBlue - 127) * value / 100.0;
             blue  = (blue < 0x00) ? 0x00 : (blue > 0xff) ? 0xff : blue;
 
-            pixels[i] = qRgba(red, green, blue, qAlpha(pixels[i]));
+            pixelsNew[i]     = red;
+            pixelsNew[i + 1] = green;
+            pixelsNew[i + 2] = blue;
         }
     }
 
@@ -280,6 +333,12 @@ void MainWindow::on_pushButtonOpen_clicked()
 }
 
 
+void MainWindow::on_pushButtonSave_clicked()
+{
+    saveFile(windowFilePath());
+}
+
+
 void MainWindow::on_pushButtonSaveAs_clicked()
 {
     QFileDialog dlg(this, tr("另存为"));
@@ -290,6 +349,17 @@ void MainWindow::on_pushButtonSaveAs_clicked()
            !saveFile(dlg.selectedFiles().first()))
     {
     }
+}
+
+
+void MainWindow::on_pushButtonReset_clicked()
+{
+    modified = false;
+    imageNew = imageOld;
+    ui->doubleSpinBoxZoom->setValue(1.0);
+    ui->horizontalSliderBrightness->setValue(0);
+    ui->horizontalSliderContrast->setValue(0);
+    updateImage();
 }
 
 
@@ -351,21 +421,15 @@ void MainWindow::on_toolButtonMirrorVertical_clicked()
 }
 
 
-void MainWindow::on_horizontalSliderBrightness_sliderMoved(int position)
+void MainWindow::on_horizontalSliderBrightness_valueChanged(int value)
 {
+    ui->horizontalSliderContrast->setValue(0);
+    adjustBrightness(value);
 }
 
 
-void MainWindow::on_pushButtonReset_clicked()
+void MainWindow::on_horizontalSliderContrast_valueChanged(int value)
 {
-    modified = false;
-    imageNew = imageOld;
-    ui->doubleSpinBoxZoom->setValue(1.0);
-    updateImage();
-}
-
-
-void MainWindow::on_horizontalSliderBrightness_actionTriggered(int action)
-{
-    adjustBrightness(action);
+    ui->horizontalSliderBrightness->setValue(0);
+    adjustContrast(value);
 }
